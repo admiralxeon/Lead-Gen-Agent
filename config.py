@@ -21,13 +21,13 @@ ANTHROPIC_MODEL = "claude-3-5-haiku-latest"
 
 # --- Open-source (Ollama) backend ---
 # llama3.2 is fine; qwen2.5 tends to produce cleaner JSON if you have it.
-OLLAMA_MODEL = "kimi-k2.7-code:cloud"
+OLLAMA_MODEL = "llama3.2"
 OLLAMA_BASE_URL = "http://localhost:11434/v1"  # OpenAI-compatible endpoint
 
 # --- Token / cost control (matters most for the Anthropic backend) ---
-SCRAPE_CHAR_LIMIT = 6000  # truncate scraped site text before sending to the LLM
+SCRAPE_CHAR_LIMIT = 6000   # truncate scraped site text before sending to the LLM
 ANALYSIS_MAX_TOKENS = 700  # JSON assessment is small; keep this tight
-DRAFT_MAX_TOKENS = 400  # outreach email is short on purpose
+DRAFT_MAX_TOKENS = 400     # outreach email is short on purpose
 
 # A lead only gets an outreach email drafted if it scores >= this.
 # Raising it saves tokens (fewer draft calls) and keeps you focused on hot leads.
