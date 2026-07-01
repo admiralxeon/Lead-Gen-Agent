@@ -15,9 +15,9 @@ SENDER_NAME = "Alex"
 SENDER_ROLE = "Growth Partner"
 
 # --- Anthropic backend ---
-# Cheapest current option for learning/budget runs. You can also use the
-# very cheap legacy "claude-3-haiku-20240307" that the course README suggests.
-ANTHROPIC_MODEL = "claude-3-5-haiku-latest"
+# Current cost-efficient model. Use the dated pin "claude-haiku-4-5-20251001"
+# if you want a fixed snapshot. For higher-quality drafts, "claude-sonnet-4-6".
+ANTHROPIC_MODEL = "claude-haiku-4-5"
 
 # --- Open-source (Ollama) backend ---
 # llama3.2 is fine; qwen2.5 tends to produce cleaner JSON if you have it.
