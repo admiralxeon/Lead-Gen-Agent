@@ -18,7 +18,7 @@ It runs on **two interchangeable backends** — a free local model or Claude —
 | Backend | Model | Cost | Use it for |
 |---------|-------|------|------------|
 | **Open-source** | Ollama (e.g. `llama3.2`) | Free, local | Development and bulk runs |
-| **Anthropic** | Claude (e.g. `claude-3-5-haiku-latest`) | Pay per token | Higher-quality drafts on your shortlist |
+| **Anthropic** | Claude (e.g. `claude-4-5-haiku-latest`) | Pay per token | Higher-quality drafts on your shortlist |
 
 The scraper, prompts, schema, and pipeline are **shared**; only the LLM module and the run script differ. Develop for free on Ollama, then send only your best leads through Claude.
 
