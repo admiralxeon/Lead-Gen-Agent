@@ -18,7 +18,7 @@ It runs on **two interchangeable backends** — a free local model or Claude —
 | Backend | Model | Cost | Use it for |
 |---------|-------|------|------------|
 | **Open-source** | Ollama (e.g. `llama3.2`) | Free, local | Development and bulk runs |
-| **Anthropic** | Claude (e.g. `claude-4-5-haiku-latest`) | Pay per token | Higher-quality drafts on your shortlist |
+| **Anthropic** | Claude (e.g. `claude-haiku-4-5`) | Pay per token | Higher-quality drafts on your shortlist |
 
 The scraper, prompts, schema, and pipeline are **shared**; only the LLM module and the run script differ. Develop for free on Ollama, then send only your best leads through Claude.
 
@@ -88,6 +88,24 @@ Edit `config.py`:
 - `COMPANY_NAME`, `COMPANY_PITCH`, `SENDER_NAME` — so outreach is grounded in *your* agency.
 - `ANTHROPIC_MODEL` / `OLLAMA_MODEL` — swap models.
 - `SCRAPE_CHAR_LIMIT`, `*_MAX_TOKENS`, `DRAFT_THRESHOLD` — the cost/quality knobs.
+
+## Retrieval-augmented grounding (RAG)
+
+Outreach emails are grounded in the agency's own knowledge base so they cite **real** services and case-study results instead of generic claims.
+
+How it works: markdown files in `knowledge/` are chunked, embedded once (local `nomic-embed-text` via Ollama — no PyTorch), and cached to `rag_index.json`. When drafting for a qualified lead, the agent retrieves the top chunks most relevant to that lead's identified problems (cosine similarity) and injects them into the draft prompt, with instructions to cite only real results.
+
+- `embedder.py` — swappable embedding client (mirrors the LLM-backend pattern).
+- `rag.py` — chunk → embed → cache → retrieve, plus `context_for()` (lazy, process-wide index; degrades to ungrounded drafting if embeddings are unavailable).
+- `knowledge/*.md` — services, case studies, and past winning outreach (edit for your agency).
+- Toggle with `USE_RAG` in `config.py`.
+
+Verify it before relying on it:
+```bash
+ollama pull nomic-embed-text
+python test_embeddings.py   # confirms embeddings work on your machine
+python test_rag.py          # confirms retrieval returns relevant chunks
+```
 
 ## How scoring works
 
