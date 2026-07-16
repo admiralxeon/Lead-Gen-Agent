@@ -19,7 +19,7 @@ CYAN, GREEN, YELLOW, RED, RESET = (
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--input", default="prospects.csv")
+    ap.add_argument("--input", default="data/prospects.csv")
     ap.add_argument("--backend", choices=["ollama", "anthropic"], default="ollama")
     ap.add_argument("--model", default=None)
     ap.add_argument("--threshold", type=int, default=config.DRAFT_THRESHOLD)

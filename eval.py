@@ -35,7 +35,7 @@ CYAN, GREEN, YELLOW, RED, RESET = (
     "\033[0m",
 )
 
-EVAL_SET_PATH = "eval_set.csv"
+EVAL_SET_PATH = "data/eval_set.csv"
 LOG_PATH = Path("outputs/llm_calls.jsonl")
 
 

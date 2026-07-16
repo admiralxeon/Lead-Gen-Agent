@@ -10,6 +10,10 @@ Run:     python test_rag.py
 """
 
 from rag import RagIndex
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
 def main():

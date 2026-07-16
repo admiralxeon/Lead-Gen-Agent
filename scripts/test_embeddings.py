@@ -10,6 +10,10 @@ Run:     python test_embeddings.py
 """
 
 from embedder import Embedder, cosine_similarity
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
 def main():
@@ -18,8 +22,8 @@ def main():
 
     sentences = [
         "We build fast, mobile-friendly websites for small businesses.",  # A
-        "Our team designs responsive sites for local shops.",             # B  ~ related to A
-        "The restaurant serves wood-fired pizza on weekends.",            # C  unrelated
+        "Our team designs responsive sites for local shops.",  # B  ~ related to A
+        "The restaurant serves wood-fired pizza on weekends.",  # C  unrelated
     ]
 
     try:

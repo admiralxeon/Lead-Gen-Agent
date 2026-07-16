@@ -3,6 +3,10 @@ Run: python debug_scrape.py
 """
 
 from scraper import Website
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 site = Website("https://lingscars.com")
 print("ok:", site.ok)

@@ -13,6 +13,10 @@ Run:     python test_chroma.py
 
 from chroma_store import ChromaStore
 from rag import RagIndex
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 QUERIES = [
     "restaurant that only takes phone orders, no online ordering",
