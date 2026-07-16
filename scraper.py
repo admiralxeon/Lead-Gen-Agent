@@ -10,8 +10,14 @@ from bs4 import BeautifulSoup
 
 HEADERS = {
     "User-Agent": (
-        "Mozilla/5.0 (compatible; LeadGenBot/1.0; +https://example.com/bot)"
-    )
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": (
+        "text/html,application/xhtml+xml,application/xml;q=0.9,"
+        "image/avif,image/webp,*/*;q=0.8"
+    ),
+    "Accept-Language": "en-US,en;q=0.9",
 }
 
 
@@ -34,7 +40,11 @@ class Website:
             return
 
         soup = BeautifulSoup(resp.content, "html.parser")
-        self.title = soup.title.string.strip() if soup.title and soup.title.string else "No title"
+        self.title = (
+            soup.title.string.strip()
+            if soup.title and soup.title.string
+            else "No title"
+        )
 
         # Remove things that are noise for analysis
         for tag in soup(["script", "style", "img", "input", "svg", "noscript"]):

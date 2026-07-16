@@ -1,15 +1,3 @@
-"""
-Retrieval layer for the RAG upgrade.
-
-Pipeline: load knowledge/*.md -> chunk -> embed each chunk once -> cache the
-vectors to disk -> retrieve the top-k most relevant chunks for a query via
-cosine similarity.
-
-This is the "vector store by hand" version - no numpy, no vector DB - so the
-mechanics are fully visible. Step 3 swaps the storage/search for Chroma without
-changing how the pipeline calls it.
-"""
-
 import glob
 import hashlib
 import json
@@ -121,3 +109,67 @@ class RagIndex:
         self.chunks = data["chunks"]
         self.vectors = data["vectors"]
         return True
+
+
+_INDEX = None
+_INDEX_TRIED = False
+
+
+def _make_store():
+    """Pick the vector store backend from config.
+
+    Both stores expose build()/retrieve(), so nothing downstream changes.
+    Chroma is imported lazily so the project still runs if chromadb isn't
+    installed - we fall back to the simple store instead of crashing.
+    """
+    if getattr(config, "VECTOR_STORE", "simple").lower() == "chroma":
+        try:
+            from chroma_store import ChromaStore
+
+            return ChromaStore()
+        except ImportError:
+            print(
+                "[RAG] chromadb not installed - falling back to the simple store. "
+                "(pip install chromadb)"
+            )
+    return RagIndex()
+
+
+def get_index():
+    global _INDEX, _INDEX_TRIED
+    if _INDEX is not None:
+        return _INDEX
+    if _INDEX_TRIED:
+        return None  # already failed once; don't retry every prospect
+    _INDEX_TRIED = True
+    try:
+        _INDEX = _make_store().build()
+        return _INDEX
+    except Exception as e:
+        print(f"[RAG disabled] could not build knowledge index: {e}")
+        print(
+            "[RAG disabled] drafting without grounding. "
+            "Is Ollama running with nomic-embed-text pulled?"
+        )
+        return None
+
+
+def context_for(assessment, k=None):
+    """Retrieve knowledge-base context relevant to a lead's problems.
+
+    Returns a formatted context string, or "" if RAG is off/unavailable.
+    """
+    if not config.USE_RAG:
+        return ""
+    index = get_index()
+    if index is None:
+        return ""
+    query = " ".join(
+        assessment.get("observations", []) + assessment.get("opportunities", [])
+    ).strip()
+    if not query:
+        query = assessment.get("summary", "")
+    if not query:
+        return ""
+    hits = index.retrieve(query, k=k)
+    return "\n\n".join(f"[{h['source']}] {h['text']}" for h in hits)

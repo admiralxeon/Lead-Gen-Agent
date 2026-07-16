@@ -12,6 +12,7 @@ Outputs:
 import csv
 import os
 import time
+from urllib.parse import urlparse
 
 import config
 import prompts
@@ -20,7 +21,20 @@ from llm_base import LLMClient
 from scraper import Website
 
 # ANSI colors so you can watch it work (course style)
-CYAN, GREEN, YELLOW, RED, RESET = "\033[96m", "\033[92m", "\033[93m", "\033[91m", "\033[0m"
+CYAN, GREEN, YELLOW, RED, RESET = (
+    "\033[96m",
+    "\033[92m",
+    "\033[93m",
+    "\033[91m",
+    "\033[0m",
+)
+
+
+def _domain(url: str) -> str:
+    """Bare domain from a URL, lowercased, no 'www.' prefix - so
+    'https://www.wolfx.io/pricing' and 'wolfx.io' compare equal."""
+    netloc = urlparse(url).netloc.lower()
+    return netloc[4:] if netloc.startswith("www.") else netloc
 
 
 def read_prospects(path: str):
@@ -35,18 +49,36 @@ def read_prospects(path: str):
     return rows
 
 
-def assess_prospect(client: LLMClient, name: str, url: str) -> dict:
+def assess_prospect(
+    client: LLMClient, name: str, url: str, stage: str = "qualify"
+) -> dict:
     """Scrape + analyze a single prospect. Returns a normalized assessment dict."""
+    if _domain(url) in config.COMPETITOR_DOMAINS:
+        return {
+            **schemas.normalize({}, name or url, url),
+            "summary": "Known competitor - excluded from qualification "
+            "(no scrape or LLM call made).",
+            "tier": "cold",
+            "lead_score": 0,
+        }
+
     site = Website(url)
     if not site.ok:
-        return {**schemas.normalize({}, name or url, url),
-                "summary": f"SCRAPE FAILED: {site.error}", "tier": "cold", "lead_score": 0}
+        return {
+            **schemas.normalize({}, name or url, url),
+            "summary": f"SCRAPE FAILED: {site.error}",
+            "tier": "cold",
+            "lead_score": 0,
+        }
 
     fallback_name = name or site.title or url
     raw = client.complete_json(
         system=prompts.ANALYSIS_SYSTEM,
-        user=prompts.analysis_user_prompt(fallback_name, site.describe(config.SCRAPE_CHAR_LIMIT)),
+        user=prompts.analysis_user_prompt(
+            fallback_name, site.describe(config.SCRAPE_CHAR_LIMIT)
+        ),
         max_tokens=config.ANALYSIS_MAX_TOKENS,
+        stage=stage,
     )
     return schemas.normalize(raw, fallback_name, url)
 
@@ -56,6 +88,7 @@ def draft_email(client: LLMClient, assessment: dict) -> str:
         system=prompts.DRAFT_SYSTEM,
         user=prompts.draft_user_prompt(assessment),
         max_tokens=config.DRAFT_MAX_TOKENS,
+        stage="draft",
     )
 
 
@@ -73,11 +106,15 @@ def run(client: LLMClient, prospects, threshold: int, out_dir: str):
             continue
 
         color = GREEN if a["tier"] == "hot" else YELLOW if a["tier"] == "warm" else RED
-        print(f"  {color}{a['tier'].upper():4} lead_score={a['lead_score']:3} "
-              f"site_quality={a['website_quality_score']:3}{RESET}  {a['summary'][:80]}")
+        print(
+            f"  {color}{a['tier'].upper():4} lead_score={a['lead_score']:3} "
+            f"site_quality={a['website_quality_score']:3}{RESET}  {a['summary'][:80]}"
+        )
 
         drafted = ""
-        if a["lead_score"] >= threshold and not a["summary"].startswith("SCRAPE FAILED"):
+        if a["lead_score"] >= threshold and not a["summary"].startswith(
+            "SCRAPE FAILED"
+        ):
             try:
                 drafted = draft_email(client, a)
                 emails.append((a, drafted))
@@ -92,24 +129,41 @@ def run(client: LLMClient, prospects, threshold: int, out_dir: str):
     _write_emails(emails, os.path.join(out_dir, "outreach_emails.md"))
 
     hot = sum(1 for r in results if r["tier"] == "hot")
-    print(f"\n{GREEN}Done. {len(results)} prospects, {hot} hot, "
-          f"{len(emails)} emails drafted.{RESET}")
+    print(
+        f"\n{GREEN}Done. {len(results)} prospects, {hot} hot, "
+        f"{len(emails)} emails drafted.{RESET}"
+    )
     print(f"  {out_dir}/results.csv\n  {out_dir}/outreach_emails.md")
     return results
 
 
 def _write_csv(results, path):
-    cols = ["company_name", "url", "tier", "lead_score",
-            "website_quality_score", "summary", "observations", "opportunities"]
+    cols = [
+        "company_name",
+        "url",
+        "tier",
+        "lead_score",
+        "website_quality_score",
+        "summary",
+        "observations",
+        "opportunities",
+    ]
     with open(path, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(cols)
         for r in sorted(results, key=lambda x: x["lead_score"], reverse=True):
-            w.writerow([
-                r["company_name"], r["url"], r["tier"], r["lead_score"],
-                r["website_quality_score"], r["summary"],
-                " | ".join(r["observations"]), " | ".join(r["opportunities"]),
-            ])
+            w.writerow(
+                [
+                    r["company_name"],
+                    r["url"],
+                    r["tier"],
+                    r["lead_score"],
+                    r["website_quality_score"],
+                    r["summary"],
+                    " | ".join(r["observations"]),
+                    " | ".join(r["opportunities"]),
+                ]
+            )
 
 
 def _write_emails(emails, path):

@@ -57,6 +57,15 @@ cover/
 *.mo
 *.pot
 
+ Generated / cached (not source)
+rag_index.json
+outputs/
+*.db
+*.sqlite
+*.sqlite3
+chroma_db/
+
+
 # Django stuff:
 *.log
 local_settings.py

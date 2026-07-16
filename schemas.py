@@ -1,22 +1,3 @@
-"""
-Structured shape for a lead assessment.
-
-We keep this as a plain dict contract (documented here) plus a normalizer,
-rather than pydantic, so the SAME parsing works for both the Anthropic and
-Ollama backends without extra dependencies.
-
-Expected JSON from the analysis step:
-{
-  "company_name": str,
-  "website_quality_score": int,   # 0-100, how good their CURRENT presence is
-  "lead_score": int,              # 0-100, how strong a lead they are for US
-  "tier": "hot" | "warm" | "cold",
-  "observations": [str],          # concrete issues found on their site
-  "opportunities": [str],         # services we could pitch
-  "summary": str                  # one-line rationale
-}
-"""
-
 TIERS = {"hot", "warm", "cold"}
 
 
@@ -36,10 +17,8 @@ def normalize(raw: dict, fallback_name: str, url: str) -> dict:
             return [v.strip()]
         return []
 
-    tier = str(raw.get("tier", "")).lower().strip()
-    if tier not in TIERS:
-        score = to_int(raw.get("lead_score"))
-        tier = "hot" if score >= 70 else "warm" if score >= 45 else "cold"
+    score = to_int(raw.get("lead_score"))
+    tier = "hot" if score >= 70 else "warm" if score >= 45 else "cold"
 
     return {
         "url": url,

@@ -1,0 +1,6 @@
+url,name,expected_tier,notes
+https://learn.microsoft.com/,Microsoft Learn,cold,Own polished docs platform - no realistic opportunity; scored cold consistently in prior manual runs
+https://www.hellointerview.com/learn/,Hello Interview,cold,Well-built professional site with existing infra; scored cold consistently in prior manual runs
+https://wolfx.io,WOLFx,cold,REGRESSION TEST - now handled by a deterministic COMPETITOR_DOMAINS exclusion in config.py/pipeline.py, added after this site repeatedly scored HOT (70-95) via inconsistent LLM judgment across manual runs. Should now ALWAYS pass with summary "Known competitor" and lead_score=0, since the LLM is never called for this domain.
+https://lingscars.com,Lings Cars,hot,Famously chaotic/dated site design - unverified expectation, first eval run, adjust if wrong
+https://www.spacejam.com/1996/,Space Jam 1996 promo,hot,Untouched 1996-era HTML page still live - unverified expectation, first eval run, adjust if wrong

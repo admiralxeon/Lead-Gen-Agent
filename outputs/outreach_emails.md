@@ -1,23 +1,40 @@
 # Drafted outreach emails
 
-## WolfX  (cold, score 92)
-<https://wolfx.io>
+## Strivik Business Solutions Pvt. Ltd  (hot, score 90)
+<https://strivik.com/>
 
-Subject: Improve Your Online Presence with a Clearer Direction for WolfX.io
+Subject: Improving Your Online Visibility & Growth Strategy
 
 Hi [Prospect's Name],
 
-I'm Alex from BrightPixel Studio, and I came across your site while researching online businesses in our niche. I wanted to take a closer look at your current setup and see if we can help improve it.
+I came across your website, Strivik Business Solutions Pvt. Ltd, while researching companies like yours. I noticed that your site could benefit from a few improvements to enhance visitor experience and convey your services more effectively.
 
- Specifically, I noticed that your menu structure could be simplified for better user experience, which might impact search engine rankings. Additionally, listing multiple duplicate services on your homepage could lead to confusion among potential customers. Our custom web development solutions and digital marketing expertise (SEO & paid ads) might be able to enhance your site's organization and online visibility.
+Your minimalist design is modern, but unclear calls-to-action could lead to missed opportunities for conversion. Additionally, poor mobile responsiveness could negatively impact your search engine rankings.
 
-Would you be open to a quick 10-minute call to discuss how we can improve WolfX.io? It would take just a few minutes of your time, and it could be the first step towards a fresh website that attracts more customers. Let me know if this is something you'd be interested in exploring further.
+However, with the right strategy, you can attract more qualified leads and showcase your services transparently. Our team at Nyxen Digital specializes in digital marketing solutions like Google Ads and SEO services, which can help drive traffic and increase online visibility.
 
-Looking forward to speaking with you soon,
+Would you be open to a quick call (15-30 minutes) to discuss how we could help improve your online presence? I'd love to explore ways to systematize growth for businesses like yours. Let me know if you're available this week or next, and I'll send over some scheduling options.
 
-Alex
-Growth Partner
-BrightPixel Studio
+Best,
+Sanjit
+
+---
+
+## WolfX  (hot, score 70)
+<https://wolfx.io>
+
+Subject: Website Optimization & Online Presence Boost for WolfX.io
+
+Hi WolfX Team,
+
+I came across your website while researching top companies like yours, and I noticed a few areas where we could help improve their user experience. Firstly, I'd love to discuss how adding concise scannable content could make your homepage more engaging? Simplifying language and breaking up copy into clear sections would greatly increase the chances of visitors finding what they're looking for.
+
+Secondly, I observed that you've used several marketing buzzwords, such as 'agile', 'innovative', and 'disruptor'. While these words might impress some, they can actually dilute your unique value proposition. Our team at Nyxen Digital specializes in crafting a clear message that resonates with your actual strengths.
+
+Would you be open to a brief 15-minute call to explore how we can help refine your website's design and online presence? 
+
+Best,
+Sanjit
 
 ---
 

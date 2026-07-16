@@ -1,150 +1,124 @@
 # Lead-Gen Agent
 
-An LLM agent that finds and qualifies sales leads for a **digital marketing / web-development agency**.
+An LLM agent that finds and qualifies sales leads for a **digital marketing / web-development agency**, then drafts grounded outreach — with a human approval step before anything gets sent.
 
-Give it a list of prospect websites and it runs a four-step pipeline on each one:
+**scrape → qualify → *pause for human approval* → draft outreach email**
 
-**scrape → analyze → score & qualify → draft a personalized outreach email**
+Runs on **two interchangeable backends** (a free local model or Claude) behind a shared interface, is exposed as a **containerized API**, and ships with an **eval harness + cost/latency observability** — not just a working pipeline, but one that's instrumented and checked.
 
-It runs on **two interchangeable backends** — a free local model or Claude — behind a single shared interface, so the same pipeline code works with either.
+> Working **prototype** built as an applied-LLM/agentic-engineering learning project, not a production product. It's meant to demonstrate the engineering end-to-end.
 
-> This is a working **prototype** built as an applied-LLM learning project, not a production product. It's meant to demonstrate the engineering end-to-end.
-
-<!-- Add a screenshot or short demo GIF of the dashboard here — it's the single biggest thing a reader looks at. -->
+<!-- Screenshot or short GIF of the Gradio approve/reject flow goes here — biggest thing a reader looks at. -->
 <!-- ![Dashboard demo](docs/demo.gif) -->
+
+## What it actually does
+
+1. **Scrapes** each prospect's site (`requests` + BeautifulSoup), flagging JS-rendered/empty pages as `review` instead of scoring them cold on bad data.
+2. **Qualifies** the lead via LLM into a `hot` / `warm` / `cold` tier and score — with tier *always* derived deterministically from the score in code, never trusted from the model's own self-reported field.
+3. **Pauses** hot/warm leads before drafting, via a LangGraph checkpoint — a human reviews and Approves or Rejects each one in the dashboard before any email gets written.
+4. **Drafts** a RAG-grounded outreach email on approval, citing real services/case studies from a local knowledge base.
+
+Known competitors are excluded before step 2 even runs — a small hardcoded domain list, not an LLM judgment call, after a real competitor repeatedly (and inconsistently) scored `hot` in testing.
 
 ## Backends
 
 | Backend | Model | Cost | Use it for |
-|---------|-------|------|------------|
+|---|---|---|---|
 | **Open-source** | Ollama (e.g. `llama3.2`) | Free, local | Development and bulk runs |
-| **Anthropic** | Claude (e.g. `claude-haiku-4-5`) | Pay per token | Higher-quality drafts on your shortlist |
+| **Anthropic** | Claude (e.g. `claude-haiku-4-5`) | ~$0.002/lead qualified | Higher-quality drafts on your shortlist |
 
-The scraper, prompts, schema, and pipeline are **shared**; only the LLM module and the run script differ. Develop for free on Ollama, then send only your best leads through Claude.
+Scraper, prompts, schema, and pipeline are shared; only the LLM client differs, selectable via env var or CLI flag.
 
-## Features
+## Beyond the pipeline
 
-- **Two interchangeable backends** behind one `LLMClient` interface (`llm_base.py`) — switch with a dropdown or a different run script.
-- **Cross-provider structured output** — reliable JSON from both backends (assistant-prefill for Claude, JSON mode for Ollama) with a brace-matching fallback parser that tolerates malformed responses.
-- **Live Gradio dashboard** (`app.py`) that streams results in as each site is processed, with a ranked table, per-lead email viewer, and CSV download.
-- **Fails loud, not silent** — JavaScript-rendered sites return near-empty HTML to a basic scraper. Instead of scoring them "cold," the agent flags them `review` so bad data never pollutes the results.
-- **Cost controls** — truncated scrapes, token caps, a `--limit` flag, and a draft threshold so emails are only written for qualifying leads.
+- **Human-in-the-loop via LangGraph** (`graph.py`) — a `MemorySaver` checkpoint with `interrupt_before=["draft"]` genuinely pauses mid-execution and resumes on command (`invoke(None, config)`), rather than just reordering an existing for-loop. Wired into the Gradio dashboard as live Approve/Reject buttons per lead.
+- **MCP server** (FastMCP) exposing `scrape_website` / `save_lead` / `list_leads` tools, a `leads://all` resource, and a `qualify_lead` prompt — tested end-to-end in Claude Desktop over HTTP transport.
+- **FastAPI endpoint** (`api.py`) wrapping qualification as a stateless `POST /qualify`, containerized with Docker (`Dockerfile`) — backend selectable via env var so the same image runs Anthropic or Ollama without a rebuild.
+- **Observability** (`llm_base.py`) — every real LLM call is timed and logged to `outputs/llm_calls.jsonl` (latency, input/output tokens, computed USD cost, pipeline stage), through one shared choke point rather than scattered logging.
+- **Eval harness** (`eval.py` + `eval_set.csv`) — a small hand-labeled set of prospects, including a deliberately adversarial case, checked against actual pipeline output. Already caught two real issues: an inconsistent competitor-qualification bug (now fixed deterministically) and a scraper failing silently on a bot-walled site.
 
 ## Project structure
 
-All files live in one folder (no subpackages, deliberately):
+Flat, no subpackages, deliberately (avoids the import-shadowing issues that come from nested `llm/`-style folders):
 
 ```
-app.py                 Gradio dashboard (recommended entry point)
-run_ollama.py          CLI entry point — open-source backend
-run_anthropic.py       CLI entry point — Anthropic backend
-ollama_backend.py      Ollama LLM client
-anthropic_backend.py   Anthropic LLM client
-llm_base.py            Shared LLM interface + JSON parsing
-pipeline.py            scrape -> analyze -> qualify -> draft orchestration
-scraper.py             Website fetch + clean (BeautifulSoup) + empty-page detection
-prompts.py             Analysis + outreach prompt builders
-schemas.py             Lead-assessment shape + score/tier normalization
-config.py              Your agency details, model names, cost knobs
-prospects.csv          Sample input (edit the url column)
-requirements.txt
+app.py                 Gradio dashboard - graph-based, with approve/reject
+api.py                 FastAPI /qualify endpoint
+graph.py               LangGraph state machine + human-in-the-loop pause/resume
+run_graph.py            CLI entry point for the graph pipeline
+eval.py / eval_set.csv  Evaluation harness + hand-labeled test cases
+llm_base.py             Shared LLM interface + observability logging
+anthropic_backend.py    Claude backend
+ollama_backend.py       Local/free backend
+pipeline.py             scrape -> qualify -> draft orchestration
+scraper.py              Website fetch + clean + empty/blocked-page detection
+schemas.py              Lead-assessment shape + deterministic tier derivation
+prompts.py              Analysis + outreach prompt builders
+config.py               Agency details, model names, competitor list, cost knobs
+Dockerfile / .dockerignore / requirements.txt
+prospects.csv           Sample input
 ```
 
-## Setup
+## Setup & run
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Dependencies: `anthropic`, `openai`, `requests`, `beautifulsoup4`, `gradio`.
-(Do **not** `pip install llm` — that's an unrelated PyPI package and will shadow local imports.)
-
-## Run
-
-### Dashboard (recommended)
+**Dashboard (recommended):**
 ```bash
-python app.py
-```
-Open the local URL it prints (usually `http://127.0.0.1:7860`). Paste URLs, pick a backend, hit **Find Leads**.
-
-### CLI — open-source / free
-```bash
-ollama pull llama3.2
-python run_ollama.py
+python app.py   # http://127.0.0.1:7860
 ```
 
-### CLI — Anthropic
+**CLI, with human-in-the-loop:**
 ```bash
-# PowerShell:  $env:ANTHROPIC_API_KEY="sk-ant-..."
-# bash/zsh:    export ANTHROPIC_API_KEY=sk-ant-...
-python run_anthropic.py --limit 5 --threshold 70
+python run_graph.py --limit 5 --threshold 70
 ```
 
-The Anthropic backend reads `ANTHROPIC_API_KEY` from the environment of whatever terminal launches it. To avoid setting it every session, copy `.env.example` to `.env`, add your key, add `python-dotenv` to `requirements.txt`, and put `from dotenv import load_dotenv; load_dotenv()` at the top of your entry point. Keep `.env` in `.gitignore`.
+**API, containerized:**
+```bash
+docker build -t leadgen-api .
+docker run -p 8000:8000 --env-file .env leadgen-api   # docs at /docs
+```
+
+**Eval:**
+```bash
+python eval.py
+```
+
+Anthropic reads `ANTHROPIC_API_KEY` via `python-dotenv` from a `.env` file (gitignored — never bake keys into the Docker image; pass with `--env-file` at run time).
 
 ## Configure
 
-Edit `config.py`:
-- `COMPANY_NAME`, `COMPANY_PITCH`, `SENDER_NAME` — so outreach is grounded in *your* agency.
-- `ANTHROPIC_MODEL` / `OLLAMA_MODEL` — swap models.
-- `SCRAPE_CHAR_LIMIT`, `*_MAX_TOKENS`, `DRAFT_THRESHOLD` — the cost/quality knobs.
-
-## Retrieval-augmented grounding (RAG)
-
-Outreach emails are grounded in the agency's own knowledge base so they cite **real** services and case-study results instead of generic claims.
-
-How it works: markdown files in `knowledge/` are chunked, embedded once (local `nomic-embed-text` via Ollama — no PyTorch), and cached to `rag_index.json`. When drafting for a qualified lead, the agent retrieves the top chunks most relevant to that lead's identified problems (cosine similarity) and injects them into the draft prompt, with instructions to cite only real results.
-
-- `embedder.py` — swappable embedding client (mirrors the LLM-backend pattern).
-- `rag.py` — chunk → embed → cache → retrieve, plus `context_for()` (lazy, process-wide index; degrades to ungrounded drafting if embeddings are unavailable).
-- `knowledge/*.md` — services, case studies, and past winning outreach (edit for your agency).
-- Toggle with `USE_RAG` in `config.py`.
-
-Verify it before relying on it:
-```bash
-ollama pull nomic-embed-text
-python test_embeddings.py   # confirms embeddings work on your machine
-python test_rag.py          # confirms retrieval returns relevant chunks
-```
+`config.py`: `COMPANY_NAME` / `COMPANY_PITCH` / `SENDER_NAME` (ground outreach in your agency), `ANTHROPIC_MODEL` / `OLLAMA_MODEL`, `COMPETITOR_DOMAINS`, and the cost/quality knobs (`SCRAPE_CHAR_LIMIT`, `*_MAX_TOKENS`, `DRAFT_THRESHOLD`).
 
 ## How scoring works
 
-Each prospect gets **two scores that run in opposite directions**:
+Two scores running in opposite directions: `lead_score` (higher = better prospect for *you*) and `website_quality_score` (lower = more opportunity — a weak existing site usually means more work to pitch). Only `lead_score` drives the tier, computed in code from a fixed threshold table in `schemas.py`, never read from the model's own `tier` field:
 
-- **`lead_score` (0–100, higher = better)** — how strong a prospect this is *for you*. Drives the tier and the decision to draft an email.
-- **`website_quality_score` (0–100, lower = more opportunity)** — how good their *current* site is. A weak site usually means more for the agency to fix, pushing `lead_score` up. It's a diagnostic, not the ranking field.
+| `lead_score` | Tier | Action |
+|---|---|---|
+| 70–100 | hot | Reach out — pauses for approval before drafting |
+| 45–69 | warm | Worth a look — also pauses for approval |
+| 0–44 | cold | Skip |
+| — | review | Page empty/JS-rendered/blocked — couldn't be judged, check manually |
 
-`lead_score` maps to a tier:
+## RAG grounding
 
-| `lead_score` | Tier | Meaning | Action |
-|---|---|---|---|
-| 70–100 | **hot** | Strong fit, clear gaps to fix | Reach out first |
-| 45–69 | **warm** | Plausible, weaker signal | Worth a look |
-| 0–44 | **cold** | Poor fit or too little to work with | Skip |
-| — | **review** | Page empty / JS-rendered — couldn't be judged | Check manually |
-
-Thresholds live in `schemas.py` and are meant to be tuned once you've eyeballed a real batch. Note `DRAFT_THRESHOLD` defaults to 60, which sits inside the warm band — set it to 70 if you only ever want to email hot leads.
-
-## Output
-
-- `outputs/results.csv` — every prospect, ranked by lead score.
-- `outputs/outreach_emails.md` — drafted emails for qualifying leads.
+Outreach emails cite **real** services/case studies instead of generic claims. `knowledge/*.md` files are chunked, embedded locally (`nomic-embed-text` via Ollama, no PyTorch), cached, and the top-matching chunks are retrieved and injected at draft time. Degrades gracefully to ungrounded drafting if embeddings are unavailable. Toggle via `USE_RAG` in `config.py`.
 
 ## Limitations
 
-The default scraper is `requests` + BeautifulSoup: fast and free, but it can't run JavaScript and has no anti-bot defenses. It handles static small-business sites well; JS-heavy (React/Wix/Squarespace) sites come back empty and get flagged `review`, and sites behind Cloudflare/CAPTCHAs will fail. The clean upgrade is a swappable scraper interface with a Playwright (free, JS-capable) or Firecrawl (paid, LLM-ready) backend.
-
-## Design notes
-
-A few decisions worth calling out, since they're the point of the project:
-
-- **One brain, two front doors.** `app.py` and the CLI scripts both import the same `pipeline` functions — no logic is duplicated in the UI. Fix a bug in the pipeline and every entry point gets it.
-- **Provider abstraction over provider lock-in.** Both backends satisfy the same interface, which is what makes "develop free locally, pay only for the shortlist" possible without branching the pipeline.
-- **Defensive parsing as a first-class concern.** Local models produce messy JSON; the fallback parser treats that as expected, not exceptional.
+- **Scraper can't run JavaScript or pass bot walls.** `requests`+BeautifulSoup handles static sites well; JS-heavy sites come back empty (`review` tier) and sites behind a JS challenge (Cloudflare, etc.) fail outright with a 403 — confirmed directly, not assumed, via a standalone scraper smoke test. Clean fix is a Playwright-backed scraper (roadmap).
+- **`MemorySaver` checkpointing is in-process only** — pending human-approval state doesn't survive an app restart. `SqliteSaver` (drop-in swap, same checkpointer interface) is the fix, not yet done.
+- **Eval set is small (5 cases)** — real signal, not yet statistically robust.
+- Serial processing (no concurrency yet), no CI/CD.
 
 ## Roadmap
 
-- Swappable scraper backend (Playwright / Firecrawl) for JS-rendered sites.
-- CSV upload in the dashboard instead of pasting URLs.
-- A prospect-discovery step so the agent finds leads instead of being handed them.
-- Multi-agent refactor (scanner / analyst / messenger) with memory to skip already-seen leads.
+- Playwright-backed scraper for JS-rendered/bot-walled sites
+- `SqliteSaver` for durable human-in-the-loop state across restarts
+- Concurrent prospect processing
+- GitHub Actions CI (lint + eval-as-regression-test on every push)
+- Expanded eval set; track pass rate across repeated runs, not single pass/fail, given real LLM output variance
+- Multi-agent refactor (scanner / analyst / messenger) with memory to skip already-seen leads
