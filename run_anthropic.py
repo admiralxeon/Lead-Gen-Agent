@@ -18,7 +18,7 @@ from anthropic_backend import AnthropicClient
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--input", default="prospects.csv")
+    ap.add_argument("--input", default="data/prospects.csv")
     ap.add_argument("--out-dir", default="outputs")
     ap.add_argument("--limit", type=int, default=None, help="max prospects to process")
     ap.add_argument("--threshold", type=int, default=config.DRAFT_THRESHOLD)
