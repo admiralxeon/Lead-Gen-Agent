@@ -1,0 +1,14 @@
+# Convenience wrapper so you don't retype the run flags.
+#   docker compose up --build
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      # Reach Ollama running on the HOST machine (not inside the container)
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434/v1
+      # Read from your local .env (never bake secrets into the image)
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # needed on Linux; harmless elsewhere

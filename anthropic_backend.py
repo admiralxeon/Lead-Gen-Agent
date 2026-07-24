@@ -6,12 +6,9 @@ Uses the Anthropic SDK. Two course-specific details applied here:
   - structured JSON via the assistant-prefill trick: we seed the assistant
     turn with "{" so the model is forced to continue raw JSON (Anthropic has
     no response_format=json_object mode).
-
-Every call is timed and logged via LLMClient._log() using real usage counts
-from resp.usage (Anthropic always returns this) - see llm_base.py.
 """
 
-import time
+import os
 
 from anthropic import Anthropic
 
@@ -32,73 +29,49 @@ class AnthropicClient(LLMClient):
 
     def __init__(self, model: str = None):
         self.model = model or config.ANTHROPIC_MODEL
+        # Fail loudly and usefully if the key isn't loaded, instead of letting
+        # every call throw an auth error that the pipeline swallows as score 0.
+        if not os.environ.get("ANTHROPIC_API_KEY"):
+            raise RuntimeError(
+                "ANTHROPIC_API_KEY is not set.\n"
+                "  - Create a .env file next to config.py containing:\n"
+                "      ANTHROPIC_API_KEY=sk-ant-...\n"
+                "  - and install the loader:  pip install python-dotenv\n"
+                "  (config.py calls load_dotenv() on import)"
+            )
         self.client = Anthropic()  # reads ANTHROPIC_API_KEY from env
+        # Populated after every call so an instrumentation wrapper can read
+        # real token counts instead of estimating them.
+        self.last_usage = None
 
-    def complete(
-        self, system: str, user: str, max_tokens: int, stage: str = "unknown"
-    ) -> str:
-        start = time.perf_counter()
-        try:
-            resp = self.client.messages.create(
-                model=self.model,
-                max_tokens=max_tokens,
-                system=system,
-                messages=[{"role": "user", "content": user}],
-            )
-            self._log(
-                stage=stage,
-                latency_ms=(time.perf_counter() - start) * 1000,
-                input_tokens=resp.usage.input_tokens,
-                output_tokens=resp.usage.output_tokens,
-                status="success",
-            )
-            return _first_text(resp).strip()
-        except Exception as e:
-            self._log(
-                stage=stage,
-                latency_ms=(time.perf_counter() - start) * 1000,
-                input_tokens=0,
-                output_tokens=0,
-                status="error",
-                error=str(e),
-            )
-            raise
-
-    def complete_json(
-        self, system: str, user: str, max_tokens: int, stage: str = "unknown"
-    ) -> dict:
-        start = time.perf_counter()
-        try:
-            resp = self.client.messages.create(
-                model=self.model,
-                max_tokens=max_tokens,
-                system=system,
-                messages=[
-                    {"role": "user", "content": user},
-                    {"role": "assistant", "content": "{"},  # prefill -> forces JSON
-                ],
-            )
-        except Exception as e:
-            self._log(
-                stage=stage,
-                latency_ms=(time.perf_counter() - start) * 1000,
-                input_tokens=0,
-                output_tokens=0,
-                status="error",
-                error=str(e),
-            )
-            raise
-
-        # The API call itself succeeded - log it as such regardless of what
-        # happens next. A JSON parse failure below is a separate, client-side
-        # concern: real tokens were spent either way, and re-logging this
-        # same call as "error" would double-count it in the observability data.
-        self._log(
-            stage=stage,
-            latency_ms=(time.perf_counter() - start) * 1000,
-            input_tokens=resp.usage.input_tokens,
-            output_tokens=resp.usage.output_tokens,
-            status="success",
+    def complete(self, system: str, user: str, max_tokens: int) -> str:
+        resp = self.client.messages.create(
+            model=self.model,
+            max_tokens=max_tokens,
+            system=system,
+            messages=[{"role": "user", "content": user}],
         )
+        self._record(resp)
+        return _first_text(resp).strip()
+
+    def complete_json(self, system: str, user: str, max_tokens: int) -> dict:
+        resp = self.client.messages.create(
+            model=self.model,
+            max_tokens=max_tokens,
+            system=system,
+            messages=[
+                {"role": "user", "content": user},
+                {"role": "assistant", "content": "{"},  # prefill -> forces JSON
+            ],
+        )
+        self._record(resp)
         text = "{" + _first_text(resp)
         return extract_json(text)
+
+    def _record(self, resp):
+        u = getattr(resp, "usage", None)
+        self.last_usage = {
+            "input_tokens": getattr(u, "input_tokens", 0) or 0,
+            "output_tokens": getattr(u, "output_tokens", 0) or 0,
+            "stop_reason": getattr(resp, "stop_reason", None),
+        }

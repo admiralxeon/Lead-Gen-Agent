@@ -1,8 +1,11 @@
 .venv/
+venv/
 __pycache__/
 *.pyc
 .env
-outputs/
 .git/
-.gitignore
-*.md
+chroma_db/
+rag_index.json
+checkpoints.sqlite
+outputs/
+*.sqlite
